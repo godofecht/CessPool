@@ -39,7 +39,8 @@ class Neuron
   double alpha = 0.5;
   double m_outputVal = 0.0;
   double m_gradient = 0.2;
-  ArrayList<Connection> m_outputWeights;
+  ArrayList<Connection> connections;
+  
 
 
   Neuron(int numOutputs, int myIndex, double weight_value)
@@ -48,7 +49,7 @@ class Neuron
     {
       Connection newConnection = new Connection(weight_value);
       newConnection.weight = randomWeight();
-      m_outputWeights.add(newConnection);
+      connections.add(newConnection);
     }
     m_myIndex = myIndex;
   }
@@ -63,7 +64,7 @@ class Neuron
     for (int n = 0; n < prevLayer.size(); ++n) 
     {
       sum += prevLayer.get(n).getOutputVal() *
-        prevLayer.get(n).m_outputWeights.get(m_myIndex).weight;
+        prevLayer.get(n).connections.get(m_myIndex).weight;
     }
 
     m_outputVal = transferFunction(sum);
@@ -90,13 +91,23 @@ class Neuron
     double delta = targetVal - m_outputVal;
     m_gradient = delta * transferFunctionDerivative(m_outputVal);
   }
+  
+  ArrayList<Double> getWeights()
+  {
+    ArrayList<Double> weights = new ArrayList<Double>();
+    for(int i = 0;i<connections.size()-1;i++)
+    {
+      weights.add(connections.get(i).getWeight());
+    }    
+    return weights;
+  }
 
   void updateInputWeights(ArrayList<Neuron> prevLayer)
   {
     for (int n = 0; n < prevLayer.size(); ++n) 
     {
       Neuron neuron = prevLayer.get(n);
-      double oldDeltaWeight = neuron.m_outputWeights.get(m_myIndex).deltaweight;
+      double oldDeltaWeight = neuron.connections.get(m_myIndex).deltaweight;
 
       double newDeltaWeight =
         // Individual input is magnified by the gradient and train rate:
@@ -107,8 +118,8 @@ class Neuron
         + alpha
         * oldDeltaWeight;
 
-      neuron.m_outputWeights.get(m_myIndex).deltaweight = newDeltaWeight;
-      neuron.m_outputWeights.get(m_myIndex).weight += newDeltaWeight;
+      neuron.connections.get(m_myIndex).deltaweight = newDeltaWeight;
+      neuron.connections.get(m_myIndex).weight += newDeltaWeight;
     }
   }
 
@@ -126,7 +137,7 @@ class Neuron
 
     for (int n = 0; n < nextLayer.size() - 1; ++n) 
     {
-      sum += m_outputWeights.get(n).weight * nextLayer.get(n).m_gradient;
+      sum += connections.get(n).weight * nextLayer.get(n).m_gradient;
     }
 
     return sum;
@@ -149,13 +160,13 @@ class Layer
   int neuronNum = 0;
   ArrayList<Neuron> neurons = new ArrayList<Neuron>();
   int numOutputs;
-  
-  Layer(ArrayList<Integer> topology,int layerNum)
+
+  Layer(ArrayList<Integer> topology, int layerNum)
   {
-    while(neuronNum < topology.get(layerNum))
+    while (neuronNum < topology.get(layerNum))
     {
       numOutputs = layerNum == topology.size() - 1 ? 0 : topology.get(layerNum + 1);
-      neurons.add(new Neuron(numOutputs,neuronNum,random(0.0,1.0)));
+      neurons.add(new Neuron(numOutputs, neuronNum, random(0.0, 1.0)));
       neuronNum = neuronNum + 1;
     }
   }
@@ -183,23 +194,23 @@ class Network
   double m_recentAverageSmoothingFactor = 100.0;
   double m_recentAverageError = 0.0;
   double delta = 0.0;
-  
+
   ArrayList<Layer> m_layers = new ArrayList<Layer>();
   Network(ArrayList<Integer> topology)
   {
     numLayers= topology.size();
     for (int layerNum = 0; layerNum < numLayers; ++layerNum) 
     {
-      m_layers.add(new Layer(topology,layerNum));
+      m_layers.add(new Layer(topology, layerNum));
       int numOutputs = layerNum == topology.size() - 1 ? 0 : topology.get(layerNum + 1);
 
       // We have a new layer, now fill it with neurons, and a bias neuron in each layer.
-  //    for (int neuronNum = 0; neuronNum <= topology.get(layerNum); ++neuronNum) 
-  //    {
-     //   m_layers.get(m_layers.size()).add(new Neuron(numOutputs, neuronNum));
-  //   m_layers.add(new Layer(topology,layerNum)
-        //   cout << "Made a Neuron!" << endl;
- //     }
+      //    for (int neuronNum = 0; neuronNum <= topology.get(layerNum); ++neuronNum) 
+      //    {
+      //   m_layers.get(m_layers.size()).add(new Neuron(numOutputs, neuronNum));
+      //   m_layers.add(new Layer(topology,layerNum)
+      //   cout << "Made a Neuron!" << endl;
+      //     }
 
       // Force the bias node's output to 1.0 (it was the last neuron pushed in this layer):
       m_layers.get(m_layers.size()).getNeurons().get(m_layers.get(m_layers.size()).getNeurons().size()).setOutputVal(1.0);
@@ -298,9 +309,9 @@ class Network
       for (int j = 0; j<m_layers.get(i).getNeurons().size(); ++j)
       {
         //for each weight
-        for (int k = 0; k<m_layers.get(i).getNeurons().get(j).m_outputWeights.size(); ++k)
+        for (int k = 0; k<m_layers.get(i).getNeurons().get(j).connections.size(); ++k)
         {
-          weights.add(m_layers.get(i).getNeurons().get(j).m_outputWeights.get(k).weight);
+          weights.add(m_layers.get(i).getNeurons().get(j).connections.get(k).weight);
         }
       }
     }
@@ -317,12 +328,120 @@ class Network
       for (int j = 0; j<m_layers.get(i).getNeurons().size(); ++j)
       {
         //for each weight
-        for (int k = 0; k<m_layers.get(i).getNeurons().get(j).m_outputWeights.size(); ++k)
+        for (int k = 0; k<m_layers.get(i).getNeurons().get(j).connections.size(); ++k)
         {
-          m_layers.get(i).getNeurons().get(j).m_outputWeights.get(k).weight = weights.get(cWeight++);
+          m_layers.get(i).getNeurons().get(j).connections.get(k).weight = weights.get(cWeight++);
         }
       }
     }
     return;
   }
+  
+  ArrayList getLayers()
+  {
+    ArrayList<Layer> all_layers = new ArrayList<Layer>();
+    for( int i = 0;i<m_layers.size()-1;i++)
+    {
+      all_layers.add(m_layers.get(i));
+    }
+    return all_layers;
+  }
+}
+
+
+class Computer
+{
+  Network thisNetwork;
+  ArrayList<Layer> layers = new ArrayList<Layer>();
+  ArrayList<Double> resultVals;
+  
+  ArrayList<Double> weights = new ArrayList<Double>();
+  Computer(ArrayList<Integer> topology)
+  {
+    thisNetwork = new Network(topology);
+  }
+
+  void BackPropagate(ArrayList<Double> targetVals)
+  {
+    thisNetwork.backPropagate(targetVals);
+  }
+
+  Network getNetwork()
+  {
+    return thisNetwork;
+  }
+
+
+  ArrayList<Double> getWeights()
+  {
+    Network network = getNetwork();
+    layers = network.getLayers();
+  //  weights = [];
+    for (int i=0; i<layers.size()-1; i++)
+    {
+      for (int j = 0; j<layers.get(i).getNeurons().size()-1; j++)
+      {
+        for (int k = 0; k<layers.get(i).getNeurons().get(j).getWeights().size()-1; k++)
+        {
+          weights.add(layers.get(i).getNeurons().get(j).getWeights().get(k));
+        }
+      }
+    }
+    return weights;
+  }
+
+
+  void feedforward(ArrayList<Double> inputs)
+  {
+    thisNetwork.feedForward(inputs);
+  }
+
+  ArrayList<Double> GetResult()
+  {
+    return resultVals;
+  }
+
+  void SetWeights(ArrayList<Double> weights)
+  {
+    thisNetwork.PutWeights(weights);
+  }
+
+  void train(int num_iterations, ArrayList<Double> trainArray, ArrayList<Double> testArray)
+  {
+    for (int i = 0; i<num_iterations; i++)
+    {
+      feedforward(trainArray);
+      BackPropagate(testArray);
+  //    resultVals = [];
+//      resultVals.clear;
+      getNetwork().getResults(resultVals);
+    }
+  }
+}
+
+void setup()
+{
+Computer newComputer;
+ArrayList<Integer> topology = new ArrayList<Integer>();
+topology.add(3);
+topology.add(3);
+topology.add(3);
+newComputer = new Computer(topology);
+//testingWeights = newComputer.GetWeights();
+ArrayList<Double> trainArray = new ArrayList<Double>();
+trainArray.add(0.0d);
+trainArray.add(1.0d);
+trainArray.add(0.0d);
+ArrayList<Double> testArray = new ArrayList<Double>();
+testArray.add(1.0d);
+testArray.add(1.0d);
+testArray.add(0.0d);
+
+ArrayList<Double> weights = new ArrayList<Double>();
+
+weights = newComputer.getWeights();
+
+newComputer.train(2, trainArray, testArray);
+print(newComputer.GetResult());
+
 }
