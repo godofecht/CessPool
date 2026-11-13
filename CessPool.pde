@@ -271,14 +271,16 @@ void setup() {
     topology.add(3);
     newComputer = new Computer(topology);
 
+    // Processing reads a number like 1.0 as a float. These lists hold
+    // Double, so the d suffix marks each number as a double.
     for (int n = 0; n < 10; n++) {
-        trainArray.add(0.0);
-        trainArray.add(1.0);
-        trainArray.add(0.0);
+        trainArray.add(0.0d);
+        trainArray.add(1.0d);
+        trainArray.add(0.0d);
 
-        testArray.add(1.0);
-        testArray.add(1.0);
-        testArray.add(0.0);
+        testArray.add(1.0d);
+        testArray.add(1.0d);
+        testArray.add(0.0d);
     }
 }
 
