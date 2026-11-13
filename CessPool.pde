@@ -4,7 +4,7 @@ class Connection {
     Connection(double value) {
         weight = 0.0;
         deltaWeight = 0.0;
-        weight = random(0.0, 1.0);  // Assign a random weight
+        weight = value;  // Starting weight, chosen by Neuron.randomWeight()
     }
 
     double getDeltaWeight() {
@@ -32,9 +32,9 @@ class Neuron {
     double m_gradient = 0.2;
     ArrayList<Connection> connections = new ArrayList<>();
 
-    Neuron(int numOutputs, int myIndex) {
+    Neuron(int numOutputs, int myIndex, double weightScale) {
         for (int c = 0; c < numOutputs; ++c) {
-            Connection newConnection = new Connection(randomWeight());
+            Connection newConnection = new Connection(randomWeight(weightScale));
             connections.add(newConnection);
         }
         m_myIndex = myIndex;
@@ -84,8 +84,12 @@ class Neuron {
         }
     }
 
-    double randomWeight() {
-        return Math.random();
+    // A random starting weight between -weightScale and +weightScale.
+    // Negative weights matter: if every weight is positive, every sum is
+    // large, tanh saturates at 1 and its slope (the gradient) is almost 0,
+    // so the network cannot learn.
+    double randomWeight(double weightScale) {
+        return (Math.random() * 2.0 - 1.0) * weightScale;
     }
 
     double sumDOW(ArrayList<Neuron> nextLayer) {
@@ -109,10 +113,19 @@ class Layer {
     int neuronNum = 0;
     ArrayList<Neuron> neurons = new ArrayList<>();
 
+    // Each layer gets one extra neuron at the end: the bias neuron. Its
+    // output is always 1.0, so its weights act as an adjustable offset for
+    // every neuron in the next layer.
     Layer(ArrayList<Integer> topology, int layerNum) {
         int numOutputs = layerNum == topology.size() - 1 ? 0 : topology.get(layerNum + 1);
-        while (neuronNum < topology.get(layerNum)) {
-            neurons.add(new Neuron(numOutputs, neuronNum));
+        // Each neuron in the next layer adds up one weighted input from every
+        // neuron here, bias included. Dividing the starting weights by the
+        // square root of that count keeps the sum small enough for tanh to
+        // stay out of saturation.
+        int numNeurons = topology.get(layerNum) + 1;
+        double weightScale = 1.0 / Math.sqrt(numNeurons);
+        while (neuronNum < numNeurons) {
+            neurons.add(new Neuron(numOutputs, neuronNum, weightScale));
             neuronNum++;
         }
     }
@@ -151,7 +164,8 @@ class Network {
         m_recentAverageError = (m_recentAverageError * m_recentAverageSmoothingFactor + m_error) /
                 (m_recentAverageSmoothingFactor + 1.0);
 
-        for (int n = 0; n < outputLayer.getNeurons().size(); ++n) {
+        // The last neuron of every layer is the bias, so skip it.
+        for (int n = 0; n < outputLayer.getNeurons().size() - 1; ++n) {
             outputLayer.getNeurons().get(n).calcOutputGradients(targetVals.get(n));
         }
 
@@ -166,14 +180,14 @@ class Network {
         for (int layerNum = m_layers.size() - 1; layerNum > 0; --layerNum) {
             Layer layer = m_layers.get(layerNum);
             Layer prevLayer = m_layers.get(layerNum - 1);
-            for (Neuron neuron : layer.getNeurons()) {
-                neuron.updateInputWeights(prevLayer.getNeurons());
+            for (int n = 0; n < layer.getNeurons().size() - 1; ++n) {
+                layer.getNeurons().get(n).updateInputWeights(prevLayer.getNeurons());
             }
         }
     }
 
     void feedForward(ArrayList<Double> inputVals) {
-        assert (inputVals.size() == m_layers.get(0).getNeurons().size());
+        assert (inputVals.size() == m_layers.get(0).getNeurons().size() - 1);
 
         for (int i = 0; i < inputVals.size(); ++i) {
             m_layers.get(0).getNeurons().get(i).setOutputVal(inputVals.get(i));
@@ -181,16 +195,19 @@ class Network {
 
         for (int layerNum = 1; layerNum < m_layers.size(); ++layerNum) {
             Layer prevLayer = m_layers.get(layerNum - 1);
-            for (Neuron neuron : m_layers.get(layerNum).getNeurons()) {
-                neuron.feedForward(prevLayer.getNeurons());
+            Layer layer = m_layers.get(layerNum);
+            // Leave the bias neuron alone so its output stays at 1.0.
+            for (int n = 0; n < layer.getNeurons().size() - 1; ++n) {
+                layer.getNeurons().get(n).feedForward(prevLayer.getNeurons());
             }
         }
     }
 
     void getResults(ArrayList<Double> resultVals) {
         resultVals.clear();
-        for (Neuron neuron : m_layers.get(m_layers.size() - 1).getNeurons()) {
-            resultVals.add(neuron.getOutputVal());
+        Layer outputLayer = m_layers.get(m_layers.size() - 1);
+        for (int n = 0; n < outputLayer.getNeurons().size() - 1; ++n) {
+            resultVals.add(outputLayer.getNeurons().get(n).getOutputVal());
         }
     }
 
